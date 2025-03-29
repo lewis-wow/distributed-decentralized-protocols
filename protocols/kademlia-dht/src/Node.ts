@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import { INode } from '@repo/types/INode';
+import keccak256 from 'keccak256';
 import { IOptions } from './IOptions';
 import { log } from './logger';
 
@@ -54,8 +54,17 @@ export class Node implements INode {
     });
   }
 
+  /**
+   * This method hashes the raw ID of the node to create a unique ID.
+   * The hash is created using the SHA-1 algorithm.
+   * @param value
+   * @returns
+   */
   static hash(value: string): string {
-    return `0x${crypto.createHash('sha1').update(value).digest('hex')}`;
+    const hash = keccak256(value);
+    const hex = hash.toString('hex');
+
+    return `0x${hex}`;
   }
 
   /**
