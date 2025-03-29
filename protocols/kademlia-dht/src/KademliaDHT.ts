@@ -1,4 +1,3 @@
-import { Path } from '@repo/logger/src/Path';
 import { INetwork } from '@repo/types/INetwork';
 import { IOptions } from './IOptions';
 import { log } from './logger';

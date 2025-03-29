@@ -23,12 +23,10 @@ dht.storeData(key, value);
 const nodeE = new Node('nodeE');
 dht.joinNetwork(nodeE);
 
-const path = new Path();
+const path = new Path<Node>();
 
 log.info('Retrieved data from DHT', {
   key,
   retrieved: dht.retrieveData(key, { path }),
-  path: path
-  .getPath()
-  .map((node) => (node as { id: string; rawId: string }).rawId),
+  path: path.getPath().map((node) => node.rawId),
 });
