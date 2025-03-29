@@ -1,0 +1,18 @@
+{
+  "name": "@repo/logger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.ts",
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@repo/types": "workspace:*",
+    "eslint": "^9.23.0",
+    "typescript": "5.8.2"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "uniqolor": "^1.1.1"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@repo/types",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.23.0",
+    "typescript": "5.8.2"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "uniqolor": "^1.1.1"
+  }
+}
