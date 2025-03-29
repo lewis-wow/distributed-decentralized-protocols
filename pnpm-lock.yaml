@@ -237,6 +237,31 @@ importers:
         specifier: 5.8.2
         version: 5.8.2
 
+  protocols/small-world-routing:
+    dependencies:
+      '@repo/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      eslint:
+        specifier: ^9.23.0
+        version: 9.23.0
+      tsx:
+        specifier: ^4.19.3
+        version: 4.19.3
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
+
 packages:
 
   '@babel/code-frame@7.26.2':
