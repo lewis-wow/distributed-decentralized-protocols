@@ -41,11 +41,6 @@ export class Node implements INode {
 
   constructor(id: string) {
     this.key = new HashKey(id);
-
-    log.info(`Node created`, {
-      id: this.key.id,
-      hash: this.key.hash,
-    });
   }
 
   /**
@@ -77,12 +72,6 @@ export class Node implements INode {
    * @param value
    */
   storeData(dataKey: HashKey, value: unknown) {
-    log.info(`Storing data at node`, {
-      key: this.key,
-      dataKey,
-      value,
-    });
-
     this.data.set(dataKey.id, value);
   }
 
@@ -93,11 +82,6 @@ export class Node implements INode {
    * @returns
    */
   getData(dataKey: HashKey): unknown | null {
-    log.info(`Getting data at node`, {
-      key: this.key,
-      dataKey,
-    });
-
     return this.data.get(dataKey.id) ?? null;
   }
 
@@ -171,12 +155,6 @@ export class Node implements INode {
          * Remove the data from the current node to avoid duplication.
          */
         this.data.delete(dataKey);
-
-        log.info(`Data migrated to new node`, {
-          from: this.key,
-          to: newNode.key,
-          dataKey,
-        });
       }
     }
   }

@@ -21,10 +21,6 @@ export class KademliaDHT implements INetwork {
    * @returns void
    */
   joinNetwork(newNode: Node) {
-    log.info(`Node joining the network`, {
-      key: newNode.key,
-    });
-
     if (this.nodes.length === 0) {
       this.nodes.push(newNode);
 
@@ -54,8 +50,7 @@ export class KademliaDHT implements INetwork {
    */
   storeData(dataKey: string | HashKey, value: string, opts?: IOptions) {
     if (this.nodes.length === 0) {
-      log.error('No nodes in the network to store data.');
-      return;
+      throw new Error('No nodes in the network to store data.');
     }
 
     const dataHashKey = HashKey.toKey(dataKey);
@@ -69,12 +64,6 @@ export class KademliaDHT implements INetwork {
     const closestNode = randomNode?.findClosestNode(dataHashKey, opts);
 
     closestNode?.storeData(dataHashKey, value);
-
-    log.info(`Data stored successfully at node`, {
-      key: closestNode.key,
-      dataKey: dataHashKey,
-      value,
-    });
   }
 
   /**
@@ -83,8 +72,7 @@ export class KademliaDHT implements INetwork {
    */
   retrieveData(dataKey: string | HashKey, opts?: IOptions): unknown | null {
     if (this.nodes.length === 0) {
-      log.info('No nodes in the network to retrieve data.');
-      return null;
+      throw new Error('No nodes in the network to retrieve data.');
     }
 
     const dataHashKey = HashKey.toKey(dataKey);
