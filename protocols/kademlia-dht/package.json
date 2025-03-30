@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:update": "vitest --update"
   },
   "dependencies": {
     "@repo/logger": "workspace:*",
@@ -18,6 +21,7 @@
     "@types/node": "^22.13.14",
     "eslint": "^9.23.0",
     "tsx": "^4.19.3",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "vitest": "^3.0.9"
   }
 }

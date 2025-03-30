@@ -4,6 +4,14 @@ import { IOptions } from './IOptions';
 import { log } from './logger';
 import { Node } from './Node';
 
+/**
+ * This class represents a Kademlia DHT network.
+ * It is a distributed hash table (DHT) that uses the Kademlia algorithm.
+ * Kademlia is a peer-to-peer information system that uses a XOR distance metric to find the closest nodes to a given target ID.
+ * The DHT is used to store and retrieve data in a distributed manner.
+ * The DHT is a decentralized network, meaning that there is no central server.
+ * Each node in the network is responsible for storing and retrieving data.
+ */
 export class KademliaDHT implements INetwork {
   nodes: Node[] = [];
 
