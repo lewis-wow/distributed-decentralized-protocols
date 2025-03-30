@@ -49,10 +49,6 @@ export class Node implements INode {
     });
   }
 
-  protected hash(value: string): string {
-    return Hash.keccak256(value);
-  }
-
   /**
    * This method calculates the XOR distance between two node IDs.
    * The XOR distance is the sum of the bitwise XOR of each character in the IDs.
