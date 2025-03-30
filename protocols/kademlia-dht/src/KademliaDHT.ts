@@ -1,7 +1,6 @@
 import { INetwork } from '@repo/types/INetwork';
 import { HashKey } from '@repo/utils/HashKey';
 import { IOptions } from './IOptions';
-import { log } from './logger';
 import { Node } from './Node';
 
 /**

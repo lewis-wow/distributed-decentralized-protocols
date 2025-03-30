@@ -1,7 +1,6 @@
 import { INode } from '@repo/types/INode';
 import { HashKey } from '@repo/utils/HashKey';
 import { IOptions } from './IOptions';
-import { log } from './logger';
 
 /**
  * This class represents a node in the Kademlia DHT network.
