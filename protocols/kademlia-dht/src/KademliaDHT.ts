@@ -1,5 +1,6 @@
 import { INetwork } from '@repo/types/INetwork';
 import { IOptions } from './IOptions';
+import { Key } from './Key';
 import { log } from './logger';
 import { Node } from './Node';
 
@@ -48,7 +49,7 @@ export class KademliaDHT implements INetwork {
       return;
     }
 
-    const targetId = Node.hash(key);
+    const targetHashKey = new Key(key);
 
     const randomNode = this.getRandomNode();
 
@@ -56,7 +57,7 @@ export class KademliaDHT implements INetwork {
      * Find the closest node to the target ID using XOR distance.
      * The closest node is responsible for storing the data.
      */
-    const closestNode = randomNode?.findClosestNode(targetId, opts);
+    const closestNode = randomNode?.findClosestNode(targetHashKey, opts);
 
     closestNode?.storeData(key, value);
 
@@ -78,7 +79,7 @@ export class KademliaDHT implements INetwork {
       return null;
     }
 
-    const targetId = Node.hash(key);
+    const targetHashKey = new Key(key);
 
     const randomNode = this.getRandomNode();
 
@@ -86,7 +87,7 @@ export class KademliaDHT implements INetwork {
      * Find the closest node to the target ID using XOR distance.
      * The closest node is responsible for retrieving the data.
      */
-    const closestNode = randomNode?.findClosestNode(targetId, opts);
+    const closestNode = randomNode?.findClosestNode(targetHashKey, opts);
 
     return closestNode?.getData(key);
   }

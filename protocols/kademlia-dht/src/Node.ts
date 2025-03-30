@@ -1,5 +1,7 @@
 import { INode } from '@repo/types/INode';
-import keccak256 from 'keccak256';
+import { AbsKey } from './AbsKey';
+import { Hash } from './Hash';
+import { IKey } from './IKey';
 import { IOptions } from './IOptions';
 import { log } from './logger';
 
@@ -16,14 +18,7 @@ import { log } from './logger';
  * The node can also add other nodes to its routing table.
  * The routing table is limited to k nodes, where k is the k-bucket size.
  */
-export class Node implements INode {
-  /**
-   * The ID of the node.
-   * Hashed from the raw ID.
-   */
-  id: string;
-  rawId: string;
-
+export class Node extends AbsKey implements INode {
   /**
    * The data stored at the node.
    */
@@ -42,11 +37,10 @@ export class Node implements INode {
    * Maximum number of nodes to store in the routing table.
    * This is the k-bucket size.
    */
-  static K = 2;
+  static readonly K = 2;
 
   constructor(rawId: string) {
-    this.rawId = rawId;
-    this.id = Node.hash(rawId);
+    super(rawId);
 
     log.info(`Node created`, {
       id: this.id,
@@ -54,17 +48,8 @@ export class Node implements INode {
     });
   }
 
-  /**
-   * This method hashes the raw ID of the node to create a unique ID.
-   * The hash is created using the SHA-1 algorithm.
-   * @param value
-   * @returns
-   */
-  static hash(value: string): string {
-    const hash = keccak256(value);
-    const hex = hash.toString('hex');
-
-    return `0x${hex}`;
+  protected hash(value: string): string {
+    return Hash.keccak256(value);
   }
 
   /**
@@ -72,15 +57,15 @@ export class Node implements INode {
    * The XOR distance is the sum of the bitwise XOR of each character in the IDs.
    * This is used to determine the closeness of two nodes in the network.
    * The smaller the distance, the closer the nodes are.
-   * @param id1
-   * @param id2
+   * @param targetHashKey1
+   * @param targetHashKey2
    * @returns
    */
-  static xorDistance(id1: string, id2: string): number {
-    const id1Binary = BigInt(id1);
-    const id2Binary = BigInt(id2);
+  static xorDistance(targetHashKey1: IKey, targetHashKey2: IKey): number {
+    const targetHashKey1Binary = BigInt(targetHashKey1.id);
+    const targetHashKey2Binary = BigInt(targetHashKey2.id);
 
-    const distance = Number(id1Binary ^ id2Binary);
+    const distance = Number(targetHashKey1Binary ^ targetHashKey2Binary);
 
     return distance;
   }
@@ -147,8 +132,7 @@ export class Node implements INode {
     this.kBuckets.push(node);
 
     this.kBuckets.sort(
-      (a, b) =>
-        Node.xorDistance(this.id, a.id) - Node.xorDistance(this.id, b.id),
+      (a, b) => Node.xorDistance(this, a) - Node.xorDistance(this, b),
     );
 
     if (this.kBuckets.length > Node.K) {
@@ -161,16 +145,16 @@ export class Node implements INode {
 
   /**
    * This method finds the closest node to a given target ID.
-   * @param targetId
+   * @param targetHashKey
    * @param visited A set of visited nodes to avoid cycles.
    * @returns The closest node to the target ID. If no nodes are found, it returns itself.
    */
-  findClosestNode(targetId: string, opts?: IOptions) {
-    return this._findClosestNode(targetId, new Set<string>(), opts);
+  findClosestNode(targetHashKey: IKey, opts?: IOptions) {
+    return this._findClosestNode(targetHashKey, new Set<string>(), opts);
   }
 
   _findClosestNode(
-    targetId: string,
+    targetHashKey: IKey,
     visited: Set<string>,
     opts?: IOptions,
   ): Node {
@@ -186,18 +170,52 @@ export class Node implements INode {
 
     visited.add(this.id);
 
-    const closestKnownNode = this.getClosestKnownNode(targetId);
+    const closestKnownNode = this.getClosestKnownNode(targetHashKey);
 
-    if (
-      !closestKnownNode ||
-      this.id === closestKnownNode.id ||
-      this.isCloserThan(closestKnownNode, targetId)
-    ) {
+    /**
+     * If there are no known nodes, return itself.
+     * If the closest known node is itself, return itself.
+     */
+    if (!closestKnownNode || this.id === closestKnownNode.id) {
       return this;
     }
 
+    console.log('FFF', this.rawId, closestKnownNode.rawId);
+
+    const thisDistance = Node.xorDistance(this, targetHashKey);
+    const closestKnownNodeDistance = Node.xorDistance(
+      closestKnownNode,
+      targetHashKey,
+    );
+
+    log.info(`Finding closest node`, {
+      rawId: this.rawId,
+      key: targetHashKey.rawId,
+      distance: thisDistance,
+    });
+
+    log.info(`Finding closest node`, {
+      rawId: closestKnownNode.rawId,
+      key: targetHashKey.rawId,
+      distance: closestKnownNodeDistance,
+    });
+
+    /**
+     * If the closest known node is closer to the target ID than itself, return itself.
+     * Otherwise, recursively find the closest node in the routing table.
+     * This is done to find the closest node in the network.
+     */
+    if (thisDistance < closestKnownNodeDistance) {
+      return this;
+    }
+
+    /**
+     * Recursively find the closest node in the routing table.
+     * Keep track of visited nodes to avoid cycles.
+     * This is important to prevent infinite loops in the network.
+     */
     const closestNode = closestKnownNode._findClosestNode(
-      targetId,
+      targetHashKey,
       visited,
       opts,
     );
@@ -208,28 +226,19 @@ export class Node implements INode {
   /**
    * Returns the closest known node in the routing table.
    *
-   * @param targetId The target ID to find the closest node to.
+   * @param targetHashKey The target ID to find the closest node to.
    * @returns The closest known node or null if no nodes are known.
    */
-  private getClosestKnownNode(targetId: string): Node | null {
-    return this.kBuckets.length
-      ? this.kBuckets.reduce((a, b) => (Node.isCloser(a, b, targetId) ? a : b))
-      : null;
-  }
+  private getClosestKnownNode(targetHashKey: IKey): Node | null {
+    if (this.kBuckets.length === 0) {
+      return null;
+    }
 
-  /**
-   * Checks which node is closer to the targetId.
-   *
-   * @returns true if nodeA is closer to targetId than nodeB.
-   */
-  private isCloserThan(nodeB: Node, targetId: string): boolean {
-    return Node.isCloser(this, nodeB, targetId);
-  }
+    return this.kBuckets.reduce((a, b) => {
+      const aDistance = Node.xorDistance(a, targetHashKey);
+      const bDistance = Node.xorDistance(b, targetHashKey);
 
-  static isCloser(nodeA: Node, nodeB: Node, targetId: string): boolean {
-    return (
-      Node.xorDistance(nodeA.id, targetId) <
-      Node.xorDistance(nodeB.id, targetId)
-    );
+      return aDistance < bDistance ? a : b;
+    });
   }
 }
