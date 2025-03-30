@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@repo/logger": "workspace:*",
+    "@repo/utils": "workspace:*",
     "keccak256": "^1.0.6"
   },
   "devDependencies": {

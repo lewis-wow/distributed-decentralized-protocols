@@ -1,6 +1,6 @@
 import { INetwork } from '@repo/types/INetwork';
+import { HashKey } from '@repo/utils/HashKey';
 import { IOptions } from './IOptions';
-import { Key } from './Key';
 import { log } from './logger';
 import { Node } from './Node';
 
@@ -14,7 +14,7 @@ export class KademliaDHT implements INetwork {
    */
   joinNetwork(newNode: Node) {
     log.info(`Node joining the network`, {
-      id: newNode.id,
+      key: newNode.key,
     });
 
     if (this.nodes.length === 0) {
@@ -39,17 +39,18 @@ export class KademliaDHT implements INetwork {
    * It uses XOR distance to determine the closest node.
    * The key is assumed to be the ID used to locate data.
    * The value is the data to be stored.
-   * @param key
+   * @param dataKey
    * @param value
+   * @param opts
    * @returns void
    */
-  storeData(key: string, value: string, opts?: IOptions) {
+  storeData(dataKey: string | HashKey, value: string, opts?: IOptions) {
     if (this.nodes.length === 0) {
       log.error('No nodes in the network to store data.');
       return;
     }
 
-    const targetHashKey = new Key(key);
+    const dataHashKey = HashKey.toKey(dataKey);
 
     const randomNode = this.getRandomNode();
 
@@ -57,29 +58,28 @@ export class KademliaDHT implements INetwork {
      * Find the closest node to the target ID using XOR distance.
      * The closest node is responsible for storing the data.
      */
-    const closestNode = randomNode?.findClosestNode(targetHashKey, opts);
+    const closestNode = randomNode?.findClosestNode(dataHashKey, opts);
 
-    closestNode?.storeData(key, value);
+    closestNode?.storeData(dataHashKey, value);
 
     log.info(`Data stored successfully at node`, {
-      id: closestNode?.id,
-      rawId: closestNode?.rawId,
-      key,
+      key: closestNode.key,
+      dataKey: dataHashKey,
       value,
     });
   }
 
   /**
    * This method retrieves data from the closest node to the given key.
-   * @param key
+   * @param dataKey
    */
-  retrieveData(key: string, opts?: IOptions): unknown | null {
+  retrieveData(dataKey: string | HashKey, opts?: IOptions): unknown | null {
     if (this.nodes.length === 0) {
       log.info('No nodes in the network to retrieve data.');
       return null;
     }
 
-    const targetHashKey = new Key(key);
+    const dataHashKey = HashKey.toKey(dataKey);
 
     const randomNode = this.getRandomNode();
 
@@ -87,9 +87,9 @@ export class KademliaDHT implements INetwork {
      * Find the closest node to the target ID using XOR distance.
      * The closest node is responsible for retrieving the data.
      */
-    const closestNode = randomNode?.findClosestNode(targetHashKey, opts);
+    const closestNode = randomNode?.findClosestNode(dataHashKey, opts);
 
-    return closestNode?.getData(key);
+    return closestNode?.getData(dataHashKey);
   }
 
   /**

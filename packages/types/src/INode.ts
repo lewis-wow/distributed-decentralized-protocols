@@ -1,3 +1,5 @@
+import { IKey } from './IKey';
+
 export interface INode {
-  id: string;
+  key: IKey;
 }

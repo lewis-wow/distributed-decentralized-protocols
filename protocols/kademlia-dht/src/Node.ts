@@ -1,7 +1,6 @@
 import { INode } from '@repo/types/INode';
-import { AbsKey } from './AbsKey';
-import { Hash } from './Hash';
-import { IKey } from './IKey';
+import { HashKey } from '@repo/utils/HashKey';
+import { Hash } from '../../../packages/utils/src/Hash';
 import { IOptions } from './IOptions';
 import { log } from './logger';
 
@@ -18,7 +17,9 @@ import { log } from './logger';
  * The node can also add other nodes to its routing table.
  * The routing table is limited to k nodes, where k is the k-bucket size.
  */
-export class Node extends AbsKey implements INode {
+export class Node implements INode {
+  key: HashKey;
+
   /**
    * The data stored at the node.
    */
@@ -39,12 +40,12 @@ export class Node extends AbsKey implements INode {
    */
   static readonly K = 2;
 
-  constructor(rawId: string) {
-    super(rawId);
+  constructor(id: string) {
+    this.key = new HashKey(id);
 
     log.info(`Node created`, {
-      id: this.id,
-      rawId: this.rawId,
+      id: this.key.id,
+      hash: this.key.hash,
     });
   }
 
@@ -61,11 +62,15 @@ export class Node extends AbsKey implements INode {
    * @param targetHashKey2
    * @returns
    */
-  static xorDistance(targetHashKey1: IKey, targetHashKey2: IKey): number {
-    const targetHashKey1Binary = BigInt(targetHashKey1.id);
-    const targetHashKey2Binary = BigInt(targetHashKey2.id);
+  static xorDistance(targetHashKey1: HashKey, targetHashKey2: HashKey): number {
+    const targetHashKey1Binary = BigInt(targetHashKey1.hash);
+    const targetHashKey2Binary = BigInt(targetHashKey2.hash);
 
-    const distance = Number(targetHashKey1Binary ^ targetHashKey2Binary);
+    const xorResult = targetHashKey1Binary ^ targetHashKey2Binary;
+
+    const xorResultBinary = xorResult.toString(2);
+
+    const distance = xorResultBinary.split('1').length - 1;
 
     return distance;
   }
@@ -73,32 +78,32 @@ export class Node extends AbsKey implements INode {
   /**
    * This method stores data at the node.
    * The key is the identifier for the data, and the value is the data itself.
-   * @param key
+   * @param dataKey
    * @param value
    */
-  storeData(key: string, value: string) {
+  storeData(dataKey: HashKey, value: unknown) {
     log.info(`Storing data at node`, {
-      id: this.id,
-      key,
+      key: this.key,
+      dataKey,
       value,
     });
 
-    this.data.set(key, value);
+    this.data.set(dataKey.id, value);
   }
 
   /**
    * This method retrieves data from the node.
    * It returns the value associated with the key if it exists, or null if not.
-   * @param key
+   * @param dataKey
    * @returns
    */
-  getData(key: string): unknown | null {
+  getData(dataKey: HashKey): unknown | null {
     log.info(`Getting data at node`, {
-      id: this.id,
-      key,
+      key: this.key,
+      dataKey,
     });
 
-    return this.data.get(key) ?? null;
+    return this.data.get(dataKey.id) ?? null;
   }
 
   /**
@@ -115,7 +120,7 @@ export class Node extends AbsKey implements INode {
     /**
      * Ignore self
      */
-    if (this.id === node.id) {
+    if (this.key.id === node.key.id) {
       return;
     }
 
@@ -123,7 +128,9 @@ export class Node extends AbsKey implements INode {
      * Check if the node already exists in the routing table
      * If it does, ignore it.
      */
-    const existing = this.kBuckets.find((n) => n.id === node.id);
+    const existing = this.kBuckets.find(
+      (kBucketNode) => kBucketNode.key.id === node.key.id,
+    );
 
     if (existing) {
       return;
@@ -132,7 +139,8 @@ export class Node extends AbsKey implements INode {
     this.kBuckets.push(node);
 
     this.kBuckets.sort(
-      (a, b) => Node.xorDistance(this, a) - Node.xorDistance(this, b),
+      (a, b) =>
+        Node.xorDistance(this.key, a.key) - Node.xorDistance(this.key, b.key),
     );
 
     if (this.kBuckets.length > Node.K) {
@@ -141,71 +149,59 @@ export class Node extends AbsKey implements INode {
        */
       this.kBuckets.pop();
     }
+
+    /**
+     * Transfer data to the new node if it is closer to the key.
+     * This is done to ensure that the data is stored at the closest node.
+     */
+    this.transferData(node);
+  }
+
+  /**
+   * Transfers data to a newly joined node if it is closer to the key.
+   * @param newNode The newly joined node.
+   */
+  transferData(newNode: Node) {
+    for (const [dataKey, value] of this.data.entries()) {
+      const dataHashKey = HashKey.toKey(dataKey);
+      const newClosest = this.findClosestNode(dataHashKey);
+
+      if (newClosest.key.id === newNode.key.id) {
+        /**
+         * New node is now responsible for this data
+         */
+        newNode.storeData(dataHashKey, value);
+
+        /**
+         * Remove the data from the current node to avoid duplication.
+         */
+        this.data.delete(dataKey);
+
+        log.info(`Data migrated to new node`, {
+          from: this.key,
+          to: newNode.key,
+          dataKey,
+        });
+      }
+    }
   }
 
   /**
    * This method finds the closest node to a given target ID.
-   * @param targetHashKey
-   * @param visited A set of visited nodes to avoid cycles.
+   * @param dataKey
+   * @param opts
    * @returns The closest node to the target ID. If no nodes are found, it returns itself.
    */
-  findClosestNode(targetHashKey: IKey, opts?: IOptions) {
-    return this._findClosestNode(targetHashKey, new Set<string>(), opts);
-  }
-
-  _findClosestNode(
-    targetHashKey: IKey,
-    visited: Set<string>,
-    opts?: IOptions,
-  ): Node {
+  findClosestNode(dataKey: HashKey, opts?: IOptions): Node {
     opts?.path?.addNode(this);
-    /**
-     * Check if the node has already been visited to avoid cycles.
-     * If it has, return itself.
-     * This is important to prevent infinite loops in the network.
-     */
-    if (visited.has(this.id)) {
-      return this;
-    }
 
-    visited.add(this.id);
-
-    const closestKnownNode = this.getClosestKnownNode(targetHashKey);
+    const closestKnownNode = this.getClosestKnownNode(dataKey);
 
     /**
      * If there are no known nodes, return itself.
      * If the closest known node is itself, return itself.
      */
-    if (!closestKnownNode || this.id === closestKnownNode.id) {
-      return this;
-    }
-
-    console.log('FFF', this.rawId, closestKnownNode.rawId);
-
-    const thisDistance = Node.xorDistance(this, targetHashKey);
-    const closestKnownNodeDistance = Node.xorDistance(
-      closestKnownNode,
-      targetHashKey,
-    );
-
-    log.info(`Finding closest node`, {
-      rawId: this.rawId,
-      key: targetHashKey.rawId,
-      distance: thisDistance,
-    });
-
-    log.info(`Finding closest node`, {
-      rawId: closestKnownNode.rawId,
-      key: targetHashKey.rawId,
-      distance: closestKnownNodeDistance,
-    });
-
-    /**
-     * If the closest known node is closer to the target ID than itself, return itself.
-     * Otherwise, recursively find the closest node in the routing table.
-     * This is done to find the closest node in the network.
-     */
-    if (thisDistance < closestKnownNodeDistance) {
+    if (this.key.id === closestKnownNode.key.id) {
       return this;
     }
 
@@ -214,11 +210,7 @@ export class Node extends AbsKey implements INode {
      * Keep track of visited nodes to avoid cycles.
      * This is important to prevent infinite loops in the network.
      */
-    const closestNode = closestKnownNode._findClosestNode(
-      targetHashKey,
-      visited,
-      opts,
-    );
+    const closestNode = closestKnownNode.findClosestNode(dataKey, opts);
 
     return closestNode;
   }
@@ -226,19 +218,19 @@ export class Node extends AbsKey implements INode {
   /**
    * Returns the closest known node in the routing table.
    *
-   * @param targetHashKey The target ID to find the closest node to.
+   * @param dataKey The target ID to find the closest node to.
    * @returns The closest known node or null if no nodes are known.
    */
-  private getClosestKnownNode(targetHashKey: IKey): Node | null {
+  private getClosestKnownNode(dataKey: HashKey): Node {
     if (this.kBuckets.length === 0) {
-      return null;
+      return this;
     }
 
-    return this.kBuckets.reduce((a, b) => {
-      const aDistance = Node.xorDistance(a, targetHashKey);
-      const bDistance = Node.xorDistance(b, targetHashKey);
+    return this.kBuckets.reduce((kBucketNodeA, kBucketNodeB) => {
+      const aDistance = Node.xorDistance(kBucketNodeA.key, dataKey);
+      const bDistance = Node.xorDistance(kBucketNodeB.key, dataKey);
 
-      return aDistance < bDistance ? a : b;
-    });
+      return aDistance < bDistance ? kBucketNodeA : kBucketNodeB;
+    }, this);
   }
 }
